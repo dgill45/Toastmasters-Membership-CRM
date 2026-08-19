@@ -18,25 +18,7 @@ function onOpen() {
 
 /**
  * Temporary placeholder functions.
- * We will replace these as we build each feature.
  */
-
-
-
-
-function sendWelcomeEmails() {
-  SpreadsheetApp.getUi().alert(
-    'Send Welcome Emails is connected. Email sending will be added later.'
-  );
-}
-
-
-function sendMeetingReminders() {
-  SpreadsheetApp.getUi().alert(
-    'Send Meeting Reminders is connected. Reminder automation will be added later.'
-  );
-}
-
 
 function refreshDashboard() {
   SpreadsheetApp.flush();
