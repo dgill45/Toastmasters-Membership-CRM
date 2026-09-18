@@ -10,6 +10,8 @@ function onOpen() {
     .addSeparator()
     .addItem('Send Welcome Emails', 'sendWelcomeEmails')
     .addItem('Send Meeting Reminders', 'sendMeetingReminders')
+    .addItem('Process Attendance', 'processAttendance')
+    .addItem('Send Attendance Follow-Ups', 'sendAttendanceFollowUps')
     .addSeparator()
     .addItem('Refresh Dashboard', 'refreshDashboard')
     .addToUi();
