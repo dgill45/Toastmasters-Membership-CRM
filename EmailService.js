@@ -237,6 +237,13 @@ ${testMode ? `\nTEST MODE: This message would normally have been sent to ${email
       const now = new Date();
 
       guestsSheet
+        .getRange(sheetRow, 8)
+        .setValue(meetingDate)
+        .setNumberFormat(
+          'mmm d, yyyy'
+        );
+
+      guestsSheet
         .getRange(sheetRow, 9)
         .setValue('Welcome Sent');
  
@@ -415,15 +422,53 @@ function sendMeetingReminders() {
       const guestName =
         `${firstName} ${lastName}`.trim();
 
-      if (
-        status !== 'Welcome Sent' ||
-        nextAction !== 'Send Reminder' ||
-        reminderSent
-      ) {
+      if (status !== 'Welcome Sent') {
+  console.log(
+    `Row ${sheetRow} skipped: Status is "${status}"`
+  );
+  skippedCount++;
+  return;
+      }
+
+      if (nextAction !== 'Send Reminder') {
+        console.log(
+          `Row ${sheetRow} skipped: Next Action is "${nextAction}"`
+        );
         skippedCount++;
         return;
       }
 
+      if (reminderSent) {
+        console.log(
+          `Row ${sheetRow} skipped: Reminder already sent (${reminderSent})`
+        );
+        skippedCount++;
+        return;
+      }
+
+      if (!(meetingDate instanceof Date)) {
+        console.log(
+          `Row ${sheetRow} skipped: Scheduled Meeting is not a valid date (${meetingDate})`
+        );
+        skippedCount++;
+        return;
+      }
+
+      if (!(nextFollowUp instanceof Date)) {
+        console.log(
+          `Row ${sheetRow} skipped: Next Follow-Up is not a valid date (${nextFollowUp})`
+        );
+        skippedCount++;
+        return;
+      }
+
+      if (nextFollowUp > now) {
+        console.log(
+          `Row ${sheetRow} skipped: Next Follow-Up is still in the future (${nextFollowUp})`
+        );
+        skippedCount++;
+        return;
+      }
       if (!(meetingDate instanceof Date)) {
         skippedCount++;
         return;

@@ -21,7 +21,8 @@ function importNewLeads() {
 
   const threads = GmailApp.search(searchQuery, 0, 50);
 
-  let importedCount = 0;
+  let newGuestCount = 0;
+  let updatedGuestCount = 0;
   let duplicateCount = 0;
   let errorCount = 0;
 
@@ -30,11 +31,11 @@ function importNewLeads() {
       try {
         const result = parseToastmastersLead_(message);
 
-        if (!result) {
-          return;
-        }
+if (!result) {
+  return;
+}
 
-        if (messageAlreadyProcessed_(message.getId())) {
+if (messageAlreadyProcessed_(message.getId())) {
   duplicateCount++;
   return;
 }
@@ -58,7 +59,7 @@ if (existingGuestRow) {
     'Existing guest updated'
   );
 
-  importedCount++;
+  updatedGuestCount++;
   return;
 }
 
@@ -73,7 +74,7 @@ logInboundActivity_(
   'New guest created'
 );
 
-importedCount++;
+newGuestCount++;
       } catch (error) {
         console.error(
           `Could not process message ${message.getId()}: ${error.message}`
@@ -86,7 +87,8 @@ importedCount++;
 
   SpreadsheetApp.getUi().alert(
     'Toastmasters lead import complete.\n\n' +
-    `New guests imported: ${importedCount}\n` +
+    `New guests: ${newGuestCount}\n` +
+    `Existing guests updated: ${updatedGuestCount}\n` +
     `Duplicates skipped: ${duplicateCount}\n` +
     `Errors: ${errorCount}`
   );
@@ -151,8 +153,11 @@ function messageAlreadyProcessed_(messageId) {
       .map(value => String(value).trim());
 
     if (messageIds.includes(messageId)) {
-      return true;
-    }
+  console.log(
+    `DUPLICATE SOURCE: Guests sheet contains Message ID ${messageId}`
+  );
+  return true;
+}
   }
 
   // Then check Contact Log.
@@ -175,12 +180,12 @@ function messageAlreadyProcessed_(messageId) {
       `Gmail Message ID: ${messageId}`;
 
     if (
-      notes.some(note =>
-        note.includes(marker)
-      )
-    ) {
-      return true;
-    }
+  notes.some(note =>
+    note.includes(marker)
+  )
+) {
+  return true;
+}
   }
 
   return false;
@@ -237,50 +242,108 @@ function findGuestRowByEmail_(sheet, email) {
 /**
  * Parses a Toastmasters scheduled-visit notification.
  */
+/**
+ * Parses a Toastmasters scheduled-visit notification.
+ */
 function parseScheduledVisit_(message, body) {
-  const pattern =
-    /Good news![\s\S]*?([A-Za-zÀ-ÿ'’.\-\s]+?)\s+at\s+([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})\s+just scheduled to visit your club meeting on\s+([A-Za-z]+,\s+[A-Za-z]+\s+\d{1,2})/i;
+  /*
+   * Normalize common email formatting differences
+   * while preserving line breaks.
+   */
+  const normalizedBody = String(body || '')
+    .replace(/\r/g, '')
+    .replace(/\u00a0/g, ' ')
+    .replace(/[ \t]+/g, ' ')
+    .trim();
 
-  const match = body.match(pattern);
-
-  if (!match) {
-    console.log(
-      `Scheduled-visit pattern was not found in message ${message.getId()}`
+  /*
+   * Find the guest name and email specifically
+   * from the scheduled-visit sentence.
+   *
+   * This prevents forwarded-message addresses
+   * such as clubleads@toastmasters.org from
+   * being mistaken for the guest's email.
+   */
+    const guestMatch = normalizedBody.match(
+      /Good news!\s*([\s\S]*?)\s+at\s+([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})\s+just scheduled to visit your club\s+meeting on/i
     );
 
-    return null;
-  }
+  /*
+   * Find the scheduled meeting date.
+   *
+   * Allows spaces or line breaks between
+   * "club" and "meeting".
+   */
+      const meetingMatch = normalizedBody.match(
+        /just scheduled to visit your club\s+meeting on\s+([A-Za-z]+,\s+[A-Za-z]+\s+\d{1,2})/i
+      );
 
-  const name = splitGuestName_(match[1]);
+      if (
+        !guestMatch ||
+        !meetingMatch
+      ) {
+        console.log(
+          `Scheduled-visit parse failed for message ${message.getId()}`
+        );
 
-  const email = match[2]
-    .trim()
-    .toLowerCase();
+        console.log(
+          `Guest found: ${guestMatch ? guestMatch[1] : 'NO'}`
+        );
 
-  const meetingDateText = match[3].trim();
-  const inquiryDate = message.getDate();
+        console.log(
+          `Email found: ${guestMatch ? guestMatch[2] : 'NO'}`
+        );
 
-  const meetingYear = determineMeetingYear_(
-    meetingDateText,
-    inquiryDate
-  );
+        console.log(
+          `Meeting date found: ${meetingMatch ? meetingMatch[1] : 'NO'}`
+        );
 
-  const meetingDate = new Date(
-    `${meetingDateText}, ${meetingYear}`
-  );
+        console.log(
+          `Body preview:\n${normalizedBody.substring(0, 800)}`
+        );
 
-  return {
-    firstName: name.firstName,
-    lastName: name.lastName,
-    email: email,
-    inquiryType: 'Scheduled Visit',
-    inquiryDate: inquiryDate,
-    meetingDate: meetingDate,
-    notes: ''
-  };
-}
+        return null;
+      }
 
+      const name =
+        splitGuestName_(
+          guestMatch[1]
+            .trim()
+            .replace(/\s+/g, ' ')
+        );
 
+      const email =
+        guestMatch[2]
+          .trim()
+          .toLowerCase();
+
+      const meetingDateText =
+        meetingMatch[1].trim();
+
+      const inquiryDate =
+        message.getDate();
+
+      const meetingYear =
+        determineMeetingYear_(
+          meetingDateText,
+          inquiryDate
+        );
+
+      const meetingDate =
+        new Date(
+          `${meetingDateText}, ${meetingYear}`
+        );
+
+      return {
+        firstName: name.firstName,
+        lastName: name.lastName,
+        email: email,
+        inquiryType: 'Scheduled Visit',
+        inquiryDate: inquiryDate,
+        meetingDate: meetingDate,
+        notes: ''
+      };
+    }
 /**
  * Parses a Toastmasters prospective-member message notification.
  */

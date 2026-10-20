@@ -158,7 +158,7 @@
                     'Cancelled';
 
                   nextAction =
-                    'Send Reschedule Invitation';
+                    'No Action';
 
                   break;
 
@@ -186,10 +186,16 @@
               const meetingDate =
                 row[col.scheduledMeeting];
 
-              const followUpDate =
-                getAttendanceFollowUpDate_(
-                  meetingDate
+              let followUpDate = "";
+                if (
+                  attendance!== 'cancelled' &&
+                  attendance!== 'canceled'
+                ){
+                  followUpDate = 
+                    getAttendanceFollowUpDate_(
+                      meetingDate
                 );
+                }
 
               sheet
                 .getRange(
